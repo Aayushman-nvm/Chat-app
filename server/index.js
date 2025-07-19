@@ -1,11 +1,29 @@
-import { WebSocketServer } from "ws";
+import express from "express";
+import mongoose from "mongoose";
+import dotenv from "dotenv";
+import cors from "cors";
 
-const ws = new WebSocketServer({ port: 5000 });
+import router from "./routes/serverRoutes.js";
 
-ws.on("connection", function(socket){
-    console.log("User connected and their socket");
-    socket.on("message",(e)=>{
-        console.log(e.toString());
-        socket.send("Pong to ",e.toString());
-    })
+dotenv.config();
+
+const app = express();
+
+const PORT = 3000;
+
+app.get("/", (req, res) => {
+  res.send("Hello");
 });
+
+app.use(express.json());
+app.use(cors());
+app.use("/", router);
+
+mongoose
+  .connect(process.env.MONGO_URL)
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server runnng on: http://localhost:${PORT}`);
+    });
+  })
+  .catch((error) => console.log(error));
