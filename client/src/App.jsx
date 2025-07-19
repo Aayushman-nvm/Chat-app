@@ -1,31 +1,19 @@
-import { useEffect, useState } from 'react'
-import './App.css'
-import { useRef } from 'react';
-
+import {Route, BrowserRouter, Navigate, Routes} from "react-router-dom"
+import {useSelector} from "react-redux";
+import Login from "./pages/Login"
+import Chat from "./pages/Chat"
 function App() {
-  const [socket, setSocket]=useState();
-  const inputRef=useRef();
-
-  function sendMessage() {
-    const message=inputRef.current.value;
-    socket.send(message);
-  }
-
-  useEffect(() => {
-    const ws = new WebSocket("ws://localhost:5000");
-    setSocket(ws);
-    ws.onmessage = (e) => {
-      alert(e.data);
-    }
-  }, []);
-
+  const token=useSelector((state)=>state.token);
+  
   return (
-    <>
-      <div>
-        <input ref={inputRef} type='text' placeholder='Message' />
-        <button onClick={sendMessage}>Send</button>
-      </div>
-    </>
+    <div>
+      <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Login/>}/>
+        <Route path="/chat" element={token?<Chat/>:<Navigate to={"/"}/>}/>
+      </Routes>
+      </BrowserRouter>
+    </div>
   )
 }
 
