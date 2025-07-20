@@ -1,9 +1,83 @@
-import React from 'react'
+import { useState, useEffect } from "react";
+import { useSelector } from "react-redux";
+import Contacts from "../components/Contacts";
+import Interface from "../components/Interface";
+import Input from "../components/Input";
+import { ArrowLeft } from "lucide-react";
 
 function Chat() {
+  const [selectedContact, setSelectedContact] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [socket, setSocket] = useState();
+  const token=useSelector((state)=>state.token);
+
+  // TODO: Replace with your backend websocket initialization
+  // function initializeWebSocket() {}
+
+  // TODO: Replace with your backend send message functionality
+  const sendMessage = (text) => {
+    if (!selectedContact) return;
+    const newMessage = { sender: "me", text, timestamp: Date.now() };
+    setMessages((prev) => [...prev, newMessage]);
+    // TODO: Send message via websocket here
+  };
+
+  useEffect(() => {
+    const ws = new WebSocket("ws://localhost:3000");
+    setSocket(ws);
+    ws.onmessage = (e) => {
+      console.log("New message!\n", e.data);
+    }
+    ws.onopen=()=>{
+      const secret=token;
+      ws.send(JSON.stringify({type:"token",secret}));
+    }
+  }, [])
+
   return (
-    <div>Chat</div>
-  )
+    <div className="flex h-screen w-screen overflow-hidden">
+      {/* Contacts Panel */}
+      <div
+        className={`bg-gray-900 text-white overflow-y-auto p-2 
+          ${selectedContact ? "hidden" : "block"} 
+          lg:block lg:w-1/3`}
+      >
+        <Contacts setSelectedContact={setSelectedContact} />
+      </div>
+
+      {/* Chat Interface */}
+      <div
+        className={`relative flex flex-col bg-gray-800 text-white 
+          ${selectedContact ? "block" : "hidden"} 
+          lg:block lg:w-2/3`}
+      >
+        {/* Header with back button and name */}
+        <div className="flex items-center p-3 bg-gray-900 border-b border-gray-700">
+          <button
+            className="lg:hidden mr-3"
+            onClick={() => setSelectedContact(null)}
+          >
+            <ArrowLeft />
+          </button>
+          <h2 className="text-lg font-semibold">
+            {selectedContact ? selectedContact.name : "No Contact Selected"}
+          </h2>
+        </div>
+
+        {/* Chat Messages Area */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          <Interface messages={messages} selectedContact={selectedContact} />
+        </div>
+
+        {/* Fixed Input Box */}
+        {selectedContact && (
+          <div className="sticky bottom-0 p-3 bg-gray-900 border-t border-gray-700">
+            <Input sendMessage={sendMessage} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
-export default Chat
+export default Chat;
