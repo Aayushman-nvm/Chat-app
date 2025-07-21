@@ -10,11 +10,11 @@ export async function handleLogin(req, res) {
   const user = await Users.findOne({ email: body.email });
 
   const isMatch = await bcrypt.compare(body.password, user.password);
-  const token = jwt.sign({ id: user._id }, process.env.SECRET);
-  
-  const finalUser=user.toObject();
-  delete finalUser.password
-  res.json({ token, user:finalUser });
+  const token = jwt.sign({ id: user._id, name: user.name }, process.env.SECRET);
+
+  const finalUser = user.toObject();
+  delete finalUser.password;
+  res.json({ token, user: finalUser });
 }
 
 export async function handleRegister(req, res) {
