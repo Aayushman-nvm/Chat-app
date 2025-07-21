@@ -9,7 +9,8 @@ function Chat() {
   const [selectedContact, setSelectedContact] = useState(null);
   const [messages, setMessages] = useState([]);
   const [socket, setSocket] = useState();
-  const token=useSelector((state)=>state.token);
+  const [onlineUsers, setOnlineUsers] = useState([]);
+  const token = useSelector((state) => state.token);
 
   // TODO: Replace with your backend websocket initialization
   // function initializeWebSocket() {}
@@ -27,12 +28,21 @@ function Chat() {
     setSocket(ws);
     ws.onmessage = (e) => {
       console.log("New message!\n", e.data);
+      const messageData = JSON.parse(e.data);
+      console.log("MESSAGE DATE: ", messageData);
+      if (messageData.type === "onlineClient") {
+        setOnlineUsers(messageData.clients);
+      }
     }
-    ws.onopen=()=>{
-      const secret=token;
-      ws.send(JSON.stringify({type:"token",secret}));
+    ws.onopen = () => {
+      const secret = token;
+      ws.send(JSON.stringify({ type: "token", secret }));
     }
   }, [])
+
+  useEffect(() => {
+    console.log("Online users in fe: ", onlineUsers);
+  }, [onlineUsers]);
 
   return (
     <div className="flex h-screen w-screen overflow-hidden">
