@@ -1,0 +1,1 @@
+//add service functions to simplify wsController code
