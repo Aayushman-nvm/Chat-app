@@ -11,16 +11,27 @@ function Chat() {
   const [socket, setSocket] = useState();
   const [onlineUsers, setOnlineUsers] = useState([]);
   const token = useSelector((state) => state.token);
+  const selfUser = useSelector((state) => state.user);
 
   // TODO: Replace with your backend websocket initialization
   // function initializeWebSocket() {}
 
   // TODO: Replace with your backend send message functionality
-  const sendMessage = (text) => {
+  function sendMessage(text) {
     if (!selectedContact) return;
-    const newMessage = { sender: "me", text, timestamp: Date.now() };
+    const newMessage = {
+      sender: { id: selfUser._id, name: selfUser.name },
+      text, timestamp: Date.now()
+    };
     setMessages((prev) => [...prev, newMessage]);
     // TODO: Send message via websocket here
+    socket.send(JSON.stringify({
+      type: "message",
+      recipient: selectedContact,
+      sender: { id: selfUser._id, name: selfUser.name },
+      text: newMessage.text,
+      timestamp: newMessage.timestamp,
+    }))
   };
 
   useEffect(() => {
@@ -32,11 +43,25 @@ function Chat() {
       console.log("MESSAGE DATE: ", messageData);
       if (messageData.type === "onlineClient") {
         setOnlineUsers(messageData.clients);
+      } else if (messageData.type === "message") {
+        const newMessage = {
+          sender: { id: messageData.id, name: messageData.name },
+          text: messageData.text, timestamp: Date.now()
+        };
+        setMessages((prev) => [...prev, newMessage]);
+        console.log(`Compareing: ${messageData.id===selfUser._id}`)
+        console.log("Incoming message from be to fe: ", messageData.text);
+      } else {
+        console.log("Message data: ", messageData);
       }
     }
     ws.onopen = () => {
       const secret = token;
       ws.send(JSON.stringify({ type: "token", secret }));
+    }
+
+    return () => {
+      ws.close();//duplication bug fixed... bug was occuring during every save of file/ re-rendering
     }
   }, [])
 
@@ -52,7 +77,7 @@ function Chat() {
           ${selectedContact ? "hidden" : "block"} 
           lg:block lg:w-1/3`}
       >
-        <Contacts setSelectedContact={setSelectedContact} />
+        <Contacts setSelectedContact={setSelectedContact} onlineUsers={onlineUsers} selectedContact={selectedContact} />
       </div>
 
       {/* Chat Interface */}
