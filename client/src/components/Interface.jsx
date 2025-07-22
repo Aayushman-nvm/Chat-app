@@ -1,12 +1,18 @@
 import { useEffect, useRef } from "react";
+import { useSelector } from "react-redux";
 
 function Interface({ messages, selectedContact }) {
   const bottomRef = useRef(null);
+  const selfUser = useSelector((state) => state.user);
 
   useEffect(() => {
     // Auto-scroll to the latest message
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    console.log("Messages in interface: ", messages);
+  }, [messages])
 
   if (!selectedContact) {
     return (
@@ -21,11 +27,10 @@ function Interface({ messages, selectedContact }) {
       {messages.map((msg, index) => (
         <div
           key={index}
-          className={`max-w-xs px-4 py-2 rounded-lg text-sm break-words ${
-            msg.sender === "me"
-              ? "bg-blue-600 text-white self-end ml-auto"
-              : "bg-gray-700 text-white self-start mr-auto"
-          }`}
+          className={`max-w-xs px-4 py-2 rounded-lg text-sm break-words ${msg.sender?.id === selfUser._id
+            ? "bg-blue-600 text-white self-end ml-auto"
+            : "bg-gray-700 text-white self-start mr-auto"
+            }`}
         >
           {msg.text}
         </div>
