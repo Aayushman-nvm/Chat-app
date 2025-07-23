@@ -4,6 +4,7 @@ import { useSelector } from "react-redux";
 function Interface({ messages, selectedContact }) {
   const bottomRef = useRef(null);
   const selfUser = useSelector((state) => state.user);
+  const apiUrl=import.meta.env.VITE_SERVER_URL;
 
   useEffect(() => {
     // Auto-scroll to the latest message
@@ -12,7 +13,17 @@ function Interface({ messages, selectedContact }) {
 
   useEffect(() => {
     console.log("Messages in interface: ", messages);
-  }, [messages])
+  }, [messages]);
+
+  async function getMessageHistroy(userId) {
+    const response =await fetch(`${apiUrl}/messages/${userId}`)
+  }
+
+  useEffect(()=>{
+    if(selectedContact){
+      getMessageHistroy(selectedContact.id);
+    }
+  },[selectedContact])
 
   if (!selectedContact) {
     return (
