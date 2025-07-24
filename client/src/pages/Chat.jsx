@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSelector } from "react-redux";
 import Contacts from "../components/Contacts";
 import Interface from "../components/Interface";
@@ -8,67 +8,118 @@ import { ArrowLeft } from "lucide-react";
 function Chat() {
   const [selectedContact, setSelectedContact] = useState(null);
   const [messages, setMessages] = useState([]);
-  const [socket, setSocket] = useState();
   const [onlineUsers, setOnlineUsers] = useState([]);
+  const socket = useRef(null); // keep socket reference
   const token = useSelector((state) => state.token);
   const selfUser = useSelector((state) => state.user);
+  const apiUrl = import.meta.env.VITE_SERVER_URL;
 
-  // TODO: Replace with your backend websocket initialization
-  // function initializeWebSocket() {}
-
-  // TODO: Replace with your backend send message functionality
+  //sending message from fe to be when both socets are connected
   function sendMessage(text) {
     if (!selectedContact) return;
     const newMessage = {
       sender: { id: selfUser._id, name: selfUser.name },
-      text, timestamp: Date.now()
+      text,
+      timestamp: Date.now(),
     };
     setMessages((prev) => [...prev, newMessage]);
-    // TODO: Send message via websocket here
-    console.log("Selected Contact: ", selectedContact);
-    socket.send(JSON.stringify({
-      type: "message",
-      recipient: { id: selectedContact.id, name: selectedContact.name },
-      sender: { id: selfUser._id, name: selfUser.name },
-      text: newMessage.text,
-      timestamp: newMessage.timestamp,
-    }))
-  };
+    socket.current.send(
+      JSON.stringify({
+        type: "message",
+        recipient: { id: selectedContact.id, name: selectedContact.name },
+        sender: { id: selfUser._id, name: selfUser.name },
+        text: newMessage.text,
+        timestamp: newMessage.timestamp,
+      })
+    );
+  }
+
+  //setting online users, or messages based on the response given from be
+  function handleMessage() {
+    if (socket.current) {
+      socket.current.onmessage = (e) => {
+        console.log("New message!\n", e.data);
+        const messageData = JSON.parse(e.data);
+        console.log("MESSAGE DATA: ", messageData);
+        if (messageData.type === "onlineClient") {
+          setOnlineUsers(messageData.clients);
+        } else if (messageData.type === "message") {
+          const newMessage = {
+            sender: {
+              id: messageData.message.sender?.id,
+              name: messageData.message.sender?.name,
+            },
+            text: messageData.message.text,
+            timestamp: Date.now(),
+          };
+          setMessages((prev) => [...prev, newMessage]);
+        } else {
+          console.log("Unhandled message data: ", messageData);
+        }
+      };
+    }
+  }
+
+  //modular function to connect to websocket
+  function connectWs() {
+    if (!socket.current) {
+      const ws = new WebSocket("ws://localhost:3000");
+      ws.onopen = () => {
+        console.log("WebSocket connected");
+        ws.send(JSON.stringify({ type: "token", secret: token }));
+      };
+      ws.onclose = () => {
+        console.warn("WebSocket closed. Reconnecting...");
+        socket.current = null;
+        setTimeout(connectWs, 2000);
+      };
+      socket.current = ws;
+    }
+  }
+
+  //fetching old messages from db to show conversation history
+  async function getMessageHistroy(userId) {
+    const response = await fetch(`${apiUrl}/messages/${userId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const messageHistory = await response.json();
+    const formattedMessages = messageHistory.map((msg) => ({
+      sender: {
+        id: msg.sender.id,
+        name: msg.sender.name,
+      },
+      text: msg.text,
+      timestamp: new Date(msg.createdAt).getTime(),
+    }));
+
+    setMessages((prev) => [
+      ...prev,
+      ...formattedMessages
+    ]);
+
+    console.log("Message history: ", messageHistory);
+
+  }
 
   useEffect(() => {
-    const ws = new WebSocket("ws://localhost:3000");
-    setSocket(ws);
-    ws.onmessage = (e) => {
-      console.log("New message!\n", e.data);
-      const messageData = JSON.parse(e.data);
-      console.log("MESSAGE DATE: ", messageData);
-      if (messageData.type === "onlineClient") {
-        setOnlineUsers(messageData.clients);
-      } else if (messageData.type === "message") {
-        const newMessage = {
-          sender: { id: messageData.message.sender?.id, name: messageData.message.sender?.name },
-          text: messageData.message.text, timestamp: Date.now()
-        };
-        console.log("New Message: ",newMessage);
-        setMessages((prev) => [...prev, newMessage]);
-        console.log(`Compareing: ${messageData.id === selfUser._id}`)
-        console.log("Incoming message from be to fe: ", messageData.message);
-      } else {
-        console.log("Message data: ", messageData);
-      }
+    if (selectedContact) {
+      getMessageHistroy(selectedContact.id);
     }
-    ws.onopen = () => {
-      const secret = token;
-      ws.send(JSON.stringify({ type: "token", secret }));
-    }
+  }, [selectedContact])
+
+  useEffect(() => {
+    connectWs();
+    handleMessage();
 
     return () => {
-      ws.close();//duplication bug fixed... bug was occuring during every save of file/ re-rendering
-    }
-  }, [])
+      if (socket.current) {
+        socket.current.close();
+      }
+    };
+  }, []);
 
   useEffect(() => {
-    console.log("Online users in fe: ", onlineUsers);
+    console.log("Online users in FE: ", onlineUsers);
   }, [onlineUsers]);
 
   return (
@@ -79,7 +130,11 @@ function Chat() {
           ${selectedContact ? "hidden" : "block"} 
           lg:block lg:w-1/3`}
       >
-        <Contacts setSelectedContact={setSelectedContact} onlineUsers={onlineUsers} selectedContact={selectedContact} />
+        <Contacts
+          setSelectedContact={setSelectedContact}
+          onlineUsers={onlineUsers}
+          selectedContact={selectedContact}
+        />
       </div>
 
       {/* Chat Interface */}
