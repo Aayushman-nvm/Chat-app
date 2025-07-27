@@ -5,53 +5,90 @@ import { useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { setUser, setToken } from "../States/slice.js";
 import Register from "../components/Register";
-import { LogIn, UserPlus } from "lucide-react";
+import { LogIn, UserPlus, MessageCircle, AlertCircle, Loader } from "lucide-react";
 
 function Login() {
   const [pageType, setPageType] = useState("login");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  
   const isLogin = pageType === "login";
   const isRegister = pageType === "register";
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const apiUrl=import.meta.env.VITE_SERVER_URL;
+  const apiUrl = import.meta.env.VITE_SERVER_URL;
 
   const loginSchema = yup.object().shape({
-    email: yup.string().email("Invalid email").required("Required"),
-    password: yup.string().required("Required"),
+    email: yup.string().email("Invalid email").required("Email is required"),
+    password: yup.string().min(6, "Password must be at least 6 characters").required("Password is required"),
   });
 
   const registerSchema = yup.object().shape({
-    email: yup.string().email("Invalid email").required("Required"),
-    password: yup.string().required("Required"),
-    name: yup.string().required("Required"),
+    email: yup.string().email("Invalid email").required("Email is required"),
+    password: yup.string().min(6, "Password must be at least 6 characters").required("Password is required"),
+    name: yup.string().min(2, "Name must be at least 2 characters").required("Name is required"),
   });
 
   const initialValuesLogin = { email: "", password: "" };
   const initialValuesRegister = { email: "", password: "", name: "" };
 
   async function handleRegister(values, onSubmitProps) {
-    const response = await fetch(`${apiUrl}/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(values),
-    });
-    const registeredUser = await response.json();
-    onSubmitProps.resetForm();
-    if (registeredUser) setPageType("login");
+    setIsLoading(true);
+    setError("");
+    
+    try {
+      const response = await fetch(`${apiUrl}/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || "Registration failed");
+      }
+
+      onSubmitProps.resetForm();
+      setPageType("login");
+      setError("Registration successful! Please login.");
+    } catch (err) {
+      setError(err.message || "Registration failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   async function handleLogin(values, onSubmitProps) {
-    const response = await fetch(`${apiUrl}/login`, {
-      method: "POST",
-      headers: { "Content-type": "application/json" },
-      body: JSON.stringify(values),
-    });
-    const loginUser = await response.json();
-    dispatch(setUser(loginUser.user));
-    dispatch(setToken(loginUser.token));
-    console.log(loginUser)
-    onSubmitProps.resetForm();
-    if (loginUser) navigate("/chat");
+    setIsLoading(true);
+    setError("");
+    
+    try {
+      const response = await fetch(`${apiUrl}/login`, {
+        method: "POST",
+        headers: { "Content-type": "application/json" },
+        body: JSON.stringify(values),
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || "Login failed");
+      }
+
+      if (data.user && data.token) {
+        dispatch(setUser(data.user));
+        dispatch(setToken(data.token));
+        onSubmitProps.resetForm();
+        navigate("/chat");
+      } else {
+        throw new Error("Invalid response from server");
+      }
+    } catch (err) {
+      setError(err.message || "Login failed. Please check your credentials.");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   async function handleFormSubmit(values, onSubmitProps) {
@@ -63,16 +100,39 @@ function Login() {
   }
 
   return (
-    <div className="flex justify-center items-center min-h-screen px-4">
-      <div className="bg-black/70 p-6 rounded-2xl shadow-lg w-full max-w-sm text-white">
-        <div className="flex items-center space-x-2 mb-6 justify-center">
-          {isLogin ? <LogIn size={28} /> : <UserPlus size={28} />}
-          <h2 className="text-xl font-semibold">{isLogin ? "Login" : "Register"}</h2>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 flex justify-center items-center px-4">
+      <div className="bg-gray-800/90 backdrop-blur-sm p-8 rounded-2xl shadow-2xl w-full max-w-md border border-gray-700">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="flex justify-center mb-4">
+            <div className="p-3 bg-blue-600 rounded-full">
+              <MessageCircle className="text-white" size={32} />
+            </div>
+          </div>
+          <h1 className="text-2xl font-bold text-white mb-2">
+            Welcome to Chat
+          </h1>
+          <div className="flex items-center justify-center space-x-2">
+            {isLogin ? <LogIn size={20} className="text-blue-400" /> : <UserPlus size={20} className="text-blue-400" />}
+            <h2 className="text-lg font-semibold text-gray-300">
+              {isLogin ? "Sign In" : "Create Account"}
+            </h2>
+          </div>
         </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 p-3 bg-red-900/50 border border-red-700 rounded-lg flex items-start space-x-2">
+            <AlertCircle className="text-red-400 mt-0.5 shrink-0" size={16} />
+            <p className="text-red-300 text-sm">{error}</p>
+          </div>
+        )}
+
         <Formik
           onSubmit={handleFormSubmit}
           initialValues={isLogin ? initialValuesLogin : initialValuesRegister}
           validationSchema={isLogin ? loginSchema : registerSchema}
+          enableReinitialize
         >
           {({
             values,
@@ -83,7 +143,7 @@ function Login() {
             handleSubmit,
             resetForm,
           }) => (
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-5">
               {isRegister && (
                 <Register
                   values={values}
@@ -93,51 +153,76 @@ function Login() {
                   handleChange={handleChange}
                 />
               )}
+              
               <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Email Address
+                </label>
                 <input
-                  placeholder="Email"
+                  placeholder="Enter your email"
                   onBlur={handleBlur}
                   onChange={handleChange}
                   value={values.email}
                   name="email"
                   type="email"
-                  className="w-full p-2 rounded bg-gray-800 border border-gray-700 focus:outline-none focus:border-orange-400"
+                  disabled={isLoading}
+                  className="w-full p-3 rounded-lg bg-gray-700 border border-gray-600 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 />
                 {touched.email && errors.email && (
-                  <p className="text-red-400 text-xs mt-1">{errors.email}</p>
+                  <p className="text-red-400 text-sm mt-1">{errors.email}</p>
                 )}
               </div>
+
               <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Password
+                </label>
                 <input
-                  placeholder="Password"
+                  placeholder="Enter your password"
                   onBlur={handleBlur}
                   onChange={handleChange}
                   value={values.password}
                   name="password"
                   type="password"
-                  className="w-full p-2 rounded bg-gray-800 border border-gray-700 focus:outline-none focus:border-orange-400"
+                  disabled={isLoading}
+                  className="w-full p-3 rounded-lg bg-gray-700 border border-gray-600 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 />
                 {touched.password && errors.password && (
-                  <p className="text-red-400 text-xs mt-1">{errors.password}</p>
+                  <p className="text-red-400 text-sm mt-1">{errors.password}</p>
                 )}
               </div>
+
               <button
                 type="submit"
-                className="w-full bg-orange-600 hover:bg-orange-500 text-white py-2 rounded transition font-semibold"
+                disabled={isLoading}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white py-3 rounded-lg transition-colors font-semibold flex items-center justify-center space-x-2 disabled:cursor-not-allowed"
               >
-                {isLogin ? "Login" : "Register"}
+                {isLoading ? (
+                  <>
+                    <Loader className="animate-spin" size={20} />
+                    <span>{isLogin ? "Signing In..." : "Creating Account..."}</span>
+                  </>
+                ) : (
+                  <span>{isLogin ? "Sign In" : "Create Account"}</span>
+                )}
               </button>
-              <p
-                onClick={() => {
-                  setPageType(isLogin ? "register" : "login");
-                  resetForm();
-                }}
-                className="text-center text-sm text-gray-300 hover:text-orange-400 cursor-pointer mt-2"
-              >
-                {isLogin
-                  ? "Don't have an account? Sign up!"
-                  : "Already have an account? Sign in!"}
-              </p>
+
+              <div className="text-center pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPageType(isLogin ? "register" : "login");
+                    resetForm();
+                    setError("");
+                  }}
+                  disabled={isLoading}
+                  className="text-blue-400 hover:text-blue-300 text-sm underline disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {isLogin
+                    ? "Don't have an account? Create one"
+                    : "Already have an account? Sign in"}
+                </button>
+              </div>
             </form>
           )}
         </Formik>
