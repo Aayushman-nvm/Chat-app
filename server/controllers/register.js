@@ -17,6 +17,11 @@ export async function handleLogin(req, res) {
   res.json({ token, user: finalUser });
 }
 
+export async function handleLogout(req, res) {
+  const token=null;
+  res.json(token);
+}
+
 export async function handleRegister(req, res) {
   console.log(req.body);
 
