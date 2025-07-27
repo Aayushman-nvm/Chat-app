@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import { messageModel } from "../model/message.js";
+import { Users } from "../model/user.js"
 
 export async function getMessages(req, res) {
   const { userId } = req.params;
@@ -20,3 +21,8 @@ export async function getMessages(req, res) {
     res.json(messages);
   console.log("UserId in be: ", userId);
 }
+
+export async function getUsers(req, res){
+  const users=await Users.find({},{'_id':1,name:1});
+  res.json(users);
+};
