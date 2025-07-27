@@ -1,11 +1,15 @@
 import { WebSocketServer } from "ws";
 import { handleConnection } from "./wsController.js";
 
-export function setupWebsocket(server){
-const wss= new WebSocketServer({server});
+export function setupWebsocket(server) {
+  const wss = new WebSocketServer({ server });
 
-wss.on("connection",(ws)=>{
+  wss.on("connection", (ws) => {
     console.log("Websocket connected");
     handleConnection(ws, wss);
-})
+  });
+
+  wss.on("close", () => {
+    console.log("Disconnected");
+  });
 }
