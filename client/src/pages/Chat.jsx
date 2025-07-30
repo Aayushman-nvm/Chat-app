@@ -20,6 +20,7 @@ function Chat() {
   const token = useSelector((state) => state.token);
   const selfUser = useSelector((state) => state.user);
   const apiUrl = import.meta.env.VITE_SERVER_URL;
+  const socketUrl=import.meta.env.VITE_SOCKET_URL;
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
@@ -100,7 +101,7 @@ function Chat() {
     if (socket.current?.readyState === WebSocket.OPEN) return;
 
     try {
-      const ws = new WebSocket("ws://localhost:3000");
+      const ws = new WebSocket(`${socketUrl}`);
 
       ws.onopen = () => {
         setIsConnected(true);
